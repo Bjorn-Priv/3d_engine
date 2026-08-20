@@ -4,37 +4,58 @@
 #include "inputhandler.h"
 
 class WindowItem {
+  friend class App;
   private: 
+    bool initialised;
+    bool openGL = true;
+
+    void setSize(int x, int y, int width, int height);
+    void changeWidth(int delta) {width += delta;};
+    void changeHeight(int delta) {height += delta;}; 
+
+    /*
+      Wrapper functions around user defined update and render functions
+      Should NEVER be called by users themselves as they are used in the App class
+      They are used to set certain OpenGL variables to the specific windows
+    */
+    void AppUpdate(), AppRender();
+
+    int leftoverWidth() {return width - minWidth;}
+    int leftoverHeight() {return height - minHeight;};
+
+
+    /*
+      User defined update and render functions 
+      Users have to implement these for their derived classes
+    */
+    virtual void update() = 0, render() = 0;
 
   protected:
-    int ID;
-    //0 = left, 1 = right, 2 = top, 3 = bottom
-    std::vector<int> affected[4]{};
-
-    bool initialised;
+    //definition: if this guy grows or shifts then all windowItems in this array need to shift their position 
 
     int x,y = 0;
     int height = 0;
     int width = 0;
+    int minHeight = 0;
+    int minWidth = 0;
+    int ID;
 
   public:
     WindowItem() = delete;
-    WindowItem(int nID) : ID(nID){};
+    WindowItem(int nID) : initialised(true), ID(nID){};
 
-    virtual void update() = 0;
-    virtual void render() = 0;
+    void setMinSize(int nwMW, int nwMH) {minWidth = nwMW; minHeight = nwMH;};
 
-    void updateSize(double widthChange, double heightChange);
-    void setSize(int x, int y, int width, int height);
+    virtual ~WindowItem(){};
 
-    //getters 
-    int getID(){return ID;};
+    /* --------------------------------------------------------
+      Getter functions
+    */
+    int getID(){return ID;}; 
     int getX(){return x;};
     int getY(){return y;};
     int getWidth(){return width;};
     int getHeight(){return height;};
-
-    virtual ~WindowItem(){};
 };
 
 template <class T>
@@ -44,11 +65,11 @@ class Item3D : public WindowItem {
   private: 
     InputHandler<T> handler;
     GLclampf background[4] = {0.5f, 0.1f, 0.15f, 1.0f};
-    
+
   public: 
+    void update() override;
+    void render() override;
     void setBG(GLclampf BG[4]);
-    void update();
-    void render();
     ~Item3D();
 };  
 
@@ -67,21 +88,12 @@ void Item3D<T>::setBG(GLclampf BG[4]) {
 
 template <class T>
 void Item3D<T>::render() {
-  glViewport(getX(), getY(), getWidth(), getHeight());
-
-  glEnable(GL_SCISSOR_TEST);
-  glScissor(getX(), getY(), getWidth(), getHeight());
-
   glClearColor(
     background[0],
     background[1],
     background[2],
     background[3]
   );
-
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  glDisable(GL_SCISSOR_TEST);
 }
 
 #endif
