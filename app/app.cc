@@ -34,9 +34,11 @@ void App::update() {
 
 void App::handleEvent(SDL_Event e) {
   if (!initialised) return;
-  if (e.type == SDL_EVENT_WINDOW_RESIZED) { //window is resized
+  if (e.type == SDL_EVENT_WINDOW_RESIZED)  //window is resized
     resizeWindow(e.window.data1, e.window.data2);
-  }
+  if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) 
+    SDL_Log("CLICK!!!!!!!!!!");
+
   
 } //handleEvent
 
@@ -47,13 +49,15 @@ void App::resizeWindow(int w, int h) {
   int diffW = (deltaW >= 0) ? growWindowWidth(deltaW) : shrinkWindowWidth(-deltaW);
   int diffH = (deltaH >= 0) ? growWindowHeight(deltaH) : shrinkWindowHeight(-deltaH);
 
-  properties.width += diffW; 
-  properties.height += diffH; 
-  
-  for (size_t i = 0; i < items.size(); i++) {
-    SDL_Log("i: %d, X : %d, Y : %d, width : %d, height %d", (int)i, items[i]->getX(), items[i]->getY(), items[i]->getWidth(), items[i]->getHeight());
-  }
-  SDL_Log("__________________________");
+  windowOrder->updateItems();
+
+  properties.width += (deltaW >= 0) ? diffW : -diffW; 
+  properties.height += (deltaH >= 0) ? diffH : -diffH;
+
+  // for (size_t i = 0; i < items.size(); i++) {
+  //   SDL_Log("i: %d, X : %d, Y : %d, width : %d, height %d", (int)i, items[i]->getX(), items[i]->getY(), items[i]->getWidth(), items[i]->getHeight());
+  // }
+  // SDL_Log("__________________________");
 } //resizeWindow
 
 int App::shrinkWindowWidth(int deltaX) {
@@ -63,7 +67,7 @@ int App::shrinkWindowWidth(int deltaX) {
   if (nGraphs == 0) return 0;
 
   int diff = deltaX / nGraphs;
-  bool rest = (deltaX % nGraphs) != 0;
+  int rest = deltaX % nGraphs;
 
   return windowOrder->shrinkWidth(diff, rest);
 } //shrinkWindowWidth
@@ -75,7 +79,7 @@ int App::shrinkWindowHeight(int deltaY) {
   if (nGraphs == 0) return 0;
 
   int diff = deltaY / nGraphs;
-  bool rest = (deltaY % nGraphs) != 0;
+  int rest = deltaY % nGraphs;
 
   return windowOrder->shrinkHeight(diff, rest);
 } //shrinkWindowHeight
@@ -87,7 +91,7 @@ int App::growWindowWidth(int deltaX) {
   if (nGraphs == 0) return 0;
 
   int diff = deltaX / nGraphs;
-  bool rest = (deltaX % nGraphs) != 0;
+  int rest = deltaX % nGraphs;
 
   return windowOrder->growWidth(diff, rest);
 } //growWindowWidth
@@ -99,7 +103,7 @@ int App::growWindowHeight(int deltaY) {
   if (nGraphs == 0) return 0;
 
   int diff = deltaY / nGraphs;
-  bool rest = (deltaY % nGraphs) != 0;
+  int rest = deltaY % nGraphs;
 
   return windowOrder->growHeight(diff, rest);
 } //growWindowHeight
@@ -164,15 +168,29 @@ void App::WindowItemOrder::push(WindowItem *oldI, WindowItem *newI) {
     if (tempO->at(i).contains(oldI)) tempO->push_back(WindowItemGraph(oldI, tempO->at(i).data(), newI));
 } //push
 
-int App::WindowItemOrder::shrinkWidth(int delta, bool bRest) {
+int App::WindowItemOrder::shrinkWidth(int delta, int rest) {
   if (ItemsInOrderH.empty()) return 0;
   int zeroes = 0;
   int totalChange = 0;
-  int rest = bRest ? 1 : 0;
 
-  if (delta == 0 && rest == 1) 
-    for (size_t i = 0; i < ItemsInOrderH.size(); i++) 
-      if (ItemsInOrderH[i].maxShrinkageWidth() > 0) {ItemsInOrderH[i].shrinkWidth(1); updateItems(); return 1;}
+  if (delta == 0 && rest != 0) {
+    for (int idx = 0; idx < rest; idx++) {
+      int maxI = 0;
+      int maxWidth = -1;
+      int temp;
+      for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
+        temp = ItemsInOrderH[i].maxShrinkageWidth();
+        if (temp > maxWidth) {
+          maxI = i;
+          maxWidth = temp;
+        }
+      }
+      if (maxWidth != -1) {
+        ItemsInOrderH[maxI].shrinkWidth(1); 
+      } else {return idx;}
+    }
+    return rest;
+  }
 
   for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
     int max = ItemsInOrderH[i].maxShrinkageWidth();
@@ -183,46 +201,60 @@ int App::WindowItemOrder::shrinkWidth(int delta, bool bRest) {
     else max = delta;
 
     ItemsInOrderH[i].shrinkWidth(max);
-    updateItems();
     totalChange += max;
   }
 
   if (zeroes != (int)ItemsInOrderH.size() && rest != 0) 
-    totalChange += shrinkWidth(rest / (ItemsInOrderH.size()-zeroes), ((rest % (ItemsInOrderH.size()-zeroes)) != 0));
+    totalChange += shrinkWidth(rest / (ItemsInOrderH.size()-zeroes), (rest % (ItemsInOrderH.size()-zeroes)));
 
   return totalChange;
 }
 
-int App::WindowItemOrder::growWidth(int delta, bool bRest) {
+int App::WindowItemOrder::growWidth(int delta, int rest) {
   if (ItemsInOrderH.empty()) return 0;
-  int rest = bRest ? 1 : 0;
   int min = INT_MAX;
   int minI = 0;
 
   for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
     ItemsInOrderH[i].growWidth(delta);
-    updateItems();
-    int temp = ItemsInOrderH[i].maxShrinkageWidth();
-    if (min > temp) {
-      min = temp;
-      minI = i;
-    }
   }
-  
-  if (rest == 1) {ItemsInOrderH[minI].growWidth(1); updateItems();}
+
+  for (int idx = 0; idx < rest; idx++) {
+    for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
+      int temp = ItemsInOrderH[i].maxShrinkageWidth();
+      if (min > temp) {
+        min = temp;
+        minI = i;
+      }
+    }
+    ItemsInOrderH[minI].growWidth(1); 
+  }
 
   return delta*ItemsInOrderH.size() + rest;
 }
 
-int App::WindowItemOrder::shrinkHeight(int delta, bool bRest) {
+int App::WindowItemOrder::shrinkHeight(int delta, int rest) {
   if (ItemsInOrderV.empty()) return 0;
   int zeroes = 0;
   int totalChange = 0;
-  int rest = bRest ? 1 : 0;
 
-  if (delta == 0 && rest == 1) 
-    for (size_t i = 0; i < ItemsInOrderV.size(); i++) 
-      if (ItemsInOrderV[i].maxShrinkageHeight() > 0) {ItemsInOrderV[i].shrinkHeight(1); updateItems(); return 1;}
+  if (delta == 0 && rest != 0) {
+    for (int idx = 0; idx < rest; idx++) {
+      int maxI = 0;
+      int max = 0;
+      for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
+        int temp = ItemsInOrderV[i].maxShrinkageHeight();
+        if (temp > max) {
+          maxI = i;
+          max = temp;
+        }
+      }
+      if (max > 0) {
+        ItemsInOrderV[maxI].shrinkHeight(1); 
+      } else {return idx;}
+    }
+    return rest;
+  }
 
   for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
     int max = ItemsInOrderV[i].maxShrinkageHeight();
@@ -233,33 +265,35 @@ int App::WindowItemOrder::shrinkHeight(int delta, bool bRest) {
     else max = delta;
 
     ItemsInOrderV[i].shrinkHeight(max);
-    updateItems();
     totalChange += max;
   }
 
   if (zeroes != (int)ItemsInOrderV.size() && rest != 0) 
-    totalChange += shrinkHeight(rest / (ItemsInOrderV.size()-zeroes), ((rest % (ItemsInOrderV.size()-zeroes)) != 0));
+    totalChange += shrinkHeight(rest / (ItemsInOrderV.size()-zeroes), (rest % (ItemsInOrderV.size()-zeroes)));
 
   return totalChange;
 }
 
-int App::WindowItemOrder::growHeight(int delta, bool bRest) {
+int App::WindowItemOrder::growHeight(int delta, int rest) {
   if (ItemsInOrderV.empty()) return 0;
-  int rest = bRest ? 1 : 0;
-  int min = INT_MAX;
-  int minI = 0;
 
   for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
     ItemsInOrderV[i].growHeight(delta);
-    updateItems();
-    int temp = ItemsInOrderV[i].maxShrinkageHeight();
-    if (min > temp) {
-      min = temp;
-      minI = i;
-    }
   }
 
-  if (rest == 1) {ItemsInOrderV[minI].growHeight(1); updateItems();}
+  for (int idx = 0; idx < rest; idx++) {
+    int min = INT_MAX;
+    int minI = 0;
+    for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
+      int temp = ItemsInOrderV[i].maxShrinkageHeight();
+      if (min > temp) {
+        min = temp;
+        minI = i;
+      }
+    }
+
+    ItemsInOrderV[minI].growHeight(1); 
+  }
 
   return delta*ItemsInOrderV.size() + rest;
 }

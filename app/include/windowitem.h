@@ -56,8 +56,8 @@ class WindowItem {
   protected:
     int *left, *top, *right, *bottom;
     int width = 0, height = 0;
-    int minHeight = 0;
-    int minWidth = 0;
+    int minHeight = 50;
+    int minWidth = 50;
     int ID;
 
   public:

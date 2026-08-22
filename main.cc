@@ -25,6 +25,8 @@ int main() {
   sub4->setBG(black);
   sub5->setBG(white);
 
+  //sub1->setMinSize(300, 300);
+
   SDL_Log("after sbu1->update");
   application.run();
 

@@ -15,7 +15,7 @@
     true if item in vector
     false otherwise
   
-  Disclaimer: assumes "==" is defined for type T
+  Conditions: assumes "==" is defined for type T
 */
 template <typename T> 
 bool ItemInVector(T item, std::vector<T> &vector) {
@@ -136,10 +136,10 @@ class App::WindowItemOrder {
     */
     int getNGraphs() {return horizontal ? ItemsInOrderH.size() : ItemsInOrderV.size();};
 
-    int shrinkWidth(int delta, bool rest);
-    int growWidth(int delta, bool rest);
-    int shrinkHeight(int delta, bool rest);
-    int growHeight(int delta, bool rest);
+    int shrinkWidth(int delta, int rest);
+    int growWidth(int delta, int rest);
+    int shrinkHeight(int delta, int rest);
+    int growHeight(int delta, int rest);
 
     void updateItems();
 
