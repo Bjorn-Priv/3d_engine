@@ -1,13 +1,5 @@
 #include "include/windowitem.h"
 
-void WindowItem::setSize(int nx, int ny, int nwidth, int nheight) {
-  SDL_Log("in set size");
-  x = nx;
-  y = ny;
-  width = nwidth;
-  height = nheight;
-}
-
 void WindowItem::AppUpdate() {
   if (!initialised) return;
   update();

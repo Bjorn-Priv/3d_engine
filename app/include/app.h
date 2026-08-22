@@ -2,7 +2,7 @@
 #define HAPP
 
 #include "windowitem.h"
-#include <list>
+#include <queue>
 
 /*
   Function that searches for an item in a vector of arbitrary types
@@ -52,7 +52,7 @@ class App {
     std::vector<WindowItem*> items;
     WindowItemOrder *windowOrder;
 
-    std::vector<int> coordArena;
+    std::deque<int> coordArena;
 
     void resizeWindow(int width, int height);
     /* 
@@ -109,9 +109,11 @@ class App::WindowItemOrder {
   private: 
     std::vector<WindowItemGraph> ItemsInOrderH{};
     std::vector<WindowItemGraph> ItemsInOrderV{};
+    std::vector<WindowItem*>* items;
 
     bool horizontal = true;
   public: 
+    WindowItemOrder(std::vector<WindowItem*>* i) : items(i) {}
     /*
       Pushes new windowItem into the order vectors and graphs
       Depending on current Horizontal value pushes to either horizontal or vertical graph
@@ -138,6 +140,8 @@ class App::WindowItemOrder {
     int growWidth(int delta, bool rest);
     int shrinkHeight(int delta, bool rest);
     int growHeight(int delta, bool rest);
+
+    void updateItems();
 
     // /*
     //   Indexing operator, returns either horizontal or vertical depending on Horizontal boolean
@@ -221,9 +225,17 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
 
   if (items.size() == 0) {
     SDL_Log("Red with: %d, %d", properties.width, properties.height);
-    temp->setSize(0, 0, properties.width, properties.height);
     items.push_back(temp);
     windowOrder->push(nullptr, temp);
+    coordArena.push_back(0);
+    coordArena.push_back(0);
+    coordArena.push_back(properties.width);
+    coordArena.push_back(properties.height);
+    temp->setLeft(&coordArena[0]);
+    temp->setBottom(&coordArena[1]);
+    temp->setRight(&coordArena[2]);
+    temp->setTop(&coordArena[3]);
+    temp->initSize();
     return i;
   }
 
@@ -235,22 +247,35 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
   SDL_Log("Width : %d, Hieght : %d", WIDTH, HEIGHT);
 
   if (hori) {
-    int height1 = (HEIGHT / 2) + (HEIGHT % 2);
     int height2 = (HEIGHT / 2);
-    temp->setSize(item->getX(), item->getY(), WIDTH, height2);
-    item->setSize(item->getX(), item->getY()+height2, WIDTH, height1);
 
+    temp->setLeft(item->getLeft());
+    temp->setRight(item->getRight());
+
+    temp->setBottom(item->getBottom());
+
+    coordArena.push_back(height2);
+    temp->setTop(&coordArena.back());
+    item->setBottom(temp->getTop());
+    //item bottom = temp height
     //copy affected from certain axis and direction
 
   } else {
     int width1 = (WIDTH / 2) + (WIDTH % 2);
-    int width2 = (WIDTH / 2);
-    temp->setSize(item->getX()+width1, item->getY(), width2, HEIGHT);
-    item->setSize(item->getX(), item->getY(), width1, HEIGHT);
+
+    temp->setTop(item->getTop());
+    temp->setBottom(item->getBottom());
+    temp->setRight(item->getRight());
+
+    coordArena.push_back(width1);
+    temp->setLeft(&coordArena.back());
+    item->setRight(temp->getLeft());
 
     //copy affected from certain axis and direction
   }
 
+  temp->initSize();
+  item->initSize();
   windowOrder->setHorizontal(hori);
   windowOrder->push(item, temp);
 

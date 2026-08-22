@@ -1,6 +1,6 @@
 #include "include/app.h"
 
-App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), window(nullptr), properties(p), windowOrder(new WindowItemOrder()) {
+App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), window(nullptr), properties(p), windowOrder(new WindowItemOrder(&items)) {
   int maj = (int)GL;
   int min = (int)((GL*10.0) - maj*10);
 
@@ -49,6 +49,11 @@ void App::resizeWindow(int w, int h) {
 
   properties.width += diffW; 
   properties.height += diffH; 
+  
+  for (size_t i = 0; i < items.size(); i++) {
+    SDL_Log("i: %d, X : %d, Y : %d, width : %d, height %d", (int)i, items[i]->getX(), items[i]->getY(), items[i]->getWidth(), items[i]->getHeight());
+  }
+  SDL_Log("__________________________");
 } //resizeWindow
 
 int App::shrinkWindowWidth(int deltaX) {
@@ -167,7 +172,7 @@ int App::WindowItemOrder::shrinkWidth(int delta, bool bRest) {
 
   if (delta == 0 && rest == 1) 
     for (size_t i = 0; i < ItemsInOrderH.size(); i++) 
-      if (ItemsInOrderH[i].maxShrinkageWidth() > 0) {ItemsInOrderH[i].shrinkWidth(1); return 1;}
+      if (ItemsInOrderH[i].maxShrinkageWidth() > 0) {ItemsInOrderH[i].shrinkWidth(1); updateItems(); return 1;}
 
   for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
     int max = ItemsInOrderH[i].maxShrinkageWidth();
@@ -178,6 +183,7 @@ int App::WindowItemOrder::shrinkWidth(int delta, bool bRest) {
     else max = delta;
 
     ItemsInOrderH[i].shrinkWidth(max);
+    updateItems();
     totalChange += max;
   }
 
@@ -195,6 +201,7 @@ int App::WindowItemOrder::growWidth(int delta, bool bRest) {
 
   for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
     ItemsInOrderH[i].growWidth(delta);
+    updateItems();
     int temp = ItemsInOrderH[i].maxShrinkageWidth();
     if (min > temp) {
       min = temp;
@@ -202,7 +209,7 @@ int App::WindowItemOrder::growWidth(int delta, bool bRest) {
     }
   }
   
-  if (rest == 1) ItemsInOrderH[minI].growWidth(1);
+  if (rest == 1) {ItemsInOrderH[minI].growWidth(1); updateItems();}
 
   return delta*ItemsInOrderH.size() + rest;
 }
@@ -215,7 +222,7 @@ int App::WindowItemOrder::shrinkHeight(int delta, bool bRest) {
 
   if (delta == 0 && rest == 1) 
     for (size_t i = 0; i < ItemsInOrderV.size(); i++) 
-      if (ItemsInOrderV[i].maxShrinkageHeight() > 0) {ItemsInOrderV[i].shrinkHeight(1); return 1;}
+      if (ItemsInOrderV[i].maxShrinkageHeight() > 0) {ItemsInOrderV[i].shrinkHeight(1); updateItems(); return 1;}
 
   for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
     int max = ItemsInOrderV[i].maxShrinkageHeight();
@@ -226,6 +233,7 @@ int App::WindowItemOrder::shrinkHeight(int delta, bool bRest) {
     else max = delta;
 
     ItemsInOrderV[i].shrinkHeight(max);
+    updateItems();
     totalChange += max;
   }
 
@@ -243,16 +251,25 @@ int App::WindowItemOrder::growHeight(int delta, bool bRest) {
 
   for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
     ItemsInOrderV[i].growHeight(delta);
+    updateItems();
     int temp = ItemsInOrderV[i].maxShrinkageHeight();
     if (min > temp) {
       min = temp;
       minI = i;
     }
   }
-  
-  if (rest == 1) ItemsInOrderV[minI].growHeight(1);
+
+  if (rest == 1) {ItemsInOrderV[minI].growHeight(1); updateItems();}
 
   return delta*ItemsInOrderV.size() + rest;
+}
+
+void App::WindowItemOrder::updateItems() {
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (WindowItem *item : *items) if (item->updateSize()) changed = true;
+  }
 }
 
 App::WindowItemOrder::WindowItemGraph::WindowItemGraph(WindowItem *ignore, std::vector<WindowItem*>* copy, WindowItem *add) {

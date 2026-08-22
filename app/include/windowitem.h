@@ -9,7 +9,6 @@ class WindowItem {
     bool initialised;
     bool openGL = true;
 
-    void setSize(int x, int y, int width, int height);
     void changeWidth(int delta) {width += delta;};
     void changeHeight(int delta) {height += delta;}; 
 
@@ -23,6 +22,30 @@ class WindowItem {
     int leftoverWidth() {return width - minWidth;}
     int leftoverHeight() {return height - minHeight;};
 
+    int* getRight(){return right;};
+    int* getLeft(){return left;};
+    int* getTop(){return top;};
+    int* getBottom(){return bottom;};
+
+    void setRight(int *i){right = i;};
+    void setLeft(int *i){left = i;};
+    void setTop(int *i){top = i;};
+    void setBottom(int *i){bottom = i;};
+
+    bool updateSize() {
+      int oldW = *right;
+      int oldH = *top;
+
+      *right = *left + width;
+      *top = *bottom + height;
+
+      return (*right != oldW) || (*top != oldH);
+    };
+
+    void initSize() {
+      width = *right - *left;
+      height = *top - *bottom;
+    }
 
     /*
       User defined update and render functions 
@@ -31,11 +54,8 @@ class WindowItem {
     virtual void update() = 0, render() = 0;
 
   protected:
-    //definition: if this guy grows or shifts then all windowItems in this array need to shift their position 
-
-    int x,y = 0;
-    int height = 0;
-    int width = 0;
+    int *left, *top, *right, *bottom;
+    int width = 0, height = 0;
     int minHeight = 0;
     int minWidth = 0;
     int ID;
@@ -52,8 +72,8 @@ class WindowItem {
       Getter functions
     */
     int getID(){return ID;}; 
-    int getX(){return x;};
-    int getY(){return y;};
+    int getX(){return *left;};
+    int getY(){return *bottom;};
     int getWidth(){return width;};
     int getHeight(){return height;};
 };
