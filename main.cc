@@ -27,4 +27,4 @@ int main() {
   //sub1->setMinSize(300, 300);
 
   application.run();
-} //main_loop
+} //main

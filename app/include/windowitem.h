@@ -7,10 +7,6 @@ class WindowItem {
   friend class App;
   private: 
     bool initialised;
-    bool openGL = true;
-
-    void changeWidth(int delta) {width += delta;};
-    void changeHeight(int delta) {height += delta;}; 
 
     /*
       Wrapper functions around user defined update and render functions
@@ -19,19 +15,61 @@ class WindowItem {
     */
     void AppUpdate(), AppRender();
 
+    /*
+      Function to change the width of this window item
+
+      Parameters: 
+        delta : amount to change the width (can be negative)
+    */
+    void changeWidth(int delta) {width += delta;};
+
+    /*
+      Function to change the height of this window item
+
+      Parameters: 
+        delta : amount to change the height (can be negative)
+    */
+    void changeHeight(int delta) {height += delta;}; 
+
+    /*
+      Calculates how much width remains between current width and minimum width for window item
+
+      Returns amount of width leftover until limit
+    */
     int leftoverWidth() {return width - minWidth;}
+
+    /*
+      Calculates how much height remains between current height and minimum height for window item
+
+      Returns amount of height leftover until limit
+    */
     int leftoverHeight() {return height - minHeight;};
+
+    /*
+      Getters for edge pointers
+    */
 
     int* getRight(){return right;};
     int* getLeft(){return left;};
     int* getTop(){return top;};
     int* getBottom(){return bottom;};
 
+    /*
+      Setters for edge pointers 
+    */
+
     void setRight(int *i){right = i;};
     void setLeft(int *i){left = i;};
     void setTop(int *i){top = i;};
     void setBottom(int *i){bottom = i;};
 
+    /*
+      Function used to update right and top edges based upon changed width and height
+
+      Returns : 
+        true if either the top or right value changed 
+        false otherwise
+    */
     bool updateSize() {
       int oldW = *right;
       int oldH = *top;
@@ -40,12 +78,15 @@ class WindowItem {
       *top = *bottom + height;
 
       return (*right != oldW) || (*top != oldH);
-    };
+    }
 
+    /*
+      Function to be called upon assignment of all edge pointers (sets width and height)
+    */
     void initSize() {
       width = *right - *left;
       height = *top - *bottom;
-    }
+    } 
 
     /*
       User defined update and render functions 
@@ -59,24 +100,42 @@ class WindowItem {
     int minHeight = 50;
     int minWidth = 50;
     int ID;
+    bool openGL = true;
 
   public:
+    //No default constructor
     WindowItem() = delete;
+
+    /*
+      Actual default constructor used by the application as it passes the ID
+    */
     WindowItem(int nID) : initialised(true), ID(nID){};
 
+    /*
+      Setter for minimum window item size
+    */
     void setMinSize(int nwMW, int nwMH) {minWidth = nwMW; minHeight = nwMH;};
 
+    /*
+      Default destructor
+    */
     virtual ~WindowItem(){};
 
-    /* --------------------------------------------------------
+    /*
       Getter functions
     */
+
     int getID(){return ID;}; 
     int getX(){return *left;};
     int getY(){return *bottom;};
     int getWidth(){return width;};
     int getHeight(){return height;};
 };
+
+
+/*
+  EXAMPLE DERIVED CLASS
+*/
 
 template <class T>
 class Item3D : public WindowItem {

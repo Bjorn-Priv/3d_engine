@@ -55,13 +55,26 @@ class App {
 
     std::deque<int> coordArena;
 
+    /*
+      Helper function for resizing window action
+
+      Parameters: 
+        width : new width of window
+        height : new height of window
+    */
     void resizeWindow(int width, int height);
 
     /* 
       Helper functions for resizeWindow
       Seperates logic for Width, Height; Growth and Shrinkage 
-      Parameter : How much the window needs to change 
-      Returns : How much the window was changed (negative for shrinking)
+
+      Parameters:
+        delta : How much the window needs to change size
+        width : boolean to indicate in which dimension the window changes
+          --true -> width is changed
+          --false -> height is changed
+
+      Returns : How much the window was changed
     */
     int shrinkWindow(int delta, bool width), growWindow(int delta, bool width);
 
@@ -71,11 +84,32 @@ class App {
       should be called after having shrunk or grown any windows
     */
     void updateItems();
+
+    /*
+      Helper function that calls the update function for every window item
+    */
+    void update();
+
+    /*
+      Helper function that calls the render function for every window item
+    */
+    void render();
+
+    /*
+      Helper function that is called when an action occurs
+
+      Parameters:
+        event : SDL_Event that contains information about the action
+    */
+    void handleEvent(SDL_Event event);
+
   public:
+    //no default constructor
     App() = delete;
 
     /*
       Default constructor 
+
       Parameters: 
         flags: SDL initialisation flags (see SDL Documentation)
         GLversion: Version of OpenGL to use ; example: 3.3
@@ -91,18 +125,19 @@ class App {
 
       Parameters: 
         Item : ID of windowItem that has to be split
-        Horizontal : boolean to indicate wether to split the window with {ID} 
-          horizontally or vertically, true = horizontally ; false = vertically
+        Horizontal : boolean to indicate how to split the window with {ID} 
+          --true -> horizontally
+          --false -> vertically
+
       returns: Pointer to the window item
     */
     template <typename T>
     T *createWindowItem(WindowItem *Item, bool Horizontal);
 
+    /* 
+      Main function to run the app
+    */
     void run();
-
-    void update();
-    void handleEvent(SDL_Event event);
-    void render();
 
     ~App();
 };
@@ -286,8 +321,9 @@ struct App::WindowItemOrder::WindowItemGraph {
 
 template <typename T>
 T *App::createWindowItem(WindowItem *item, bool hori) {
-  if (!initialised || !(std::is_base_of<WindowItem, T>::value)) return nullptr;
-  
+  static_assert(std::is_base_of<WindowItem, T>::value, "Type T needs to be derived from WindowItem");
+  if (!initialised) return nullptr;
+
   T *i = new T((int)items.size());
   WindowItem *temp = reinterpret_cast<WindowItem *>(i);
 

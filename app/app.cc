@@ -30,11 +30,41 @@ App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), openGL(
   if (!initialised) SDL_Log("%s", SDL_GetError());
 } //constructor
 
+void App::run() {
+  bool running = true;
+  SDL_Event event;
+
+  while (running) {
+    while (running && SDL_PollEvent(&event)) {
+      if (event.type == SDL_EVENT_QUIT) running = false;
+      handleEvent(event);
+    } 
+
+    update();
+    render();
+  }
+} //run
+
 void App::update() {
   if (!initialised) return;
 
   for (WindowItem* item : items) item->AppUpdate();
 } //update
+
+void App::render() {
+  if (!initialised) return;
+
+  if (openGL) {
+    glViewport(0, 0, properties.width, properties.height);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  }
+
+  for (WindowItem* item : items) item->AppRender();
+
+  if (openGL)
+    SDL_GL_SwapWindow(window);
+} //render
 
 void App::handleEvent(SDL_Event e) {
   if (!initialised) return;
@@ -88,33 +118,6 @@ int App::growWindow(int delta, bool w) {
   return windowOrder->grow(diff, rest, w);
 } //growWindowWidth
 
-void App::render() {
-  if (!initialised) return;
-
-  glViewport(0, 0, properties.width, properties.height);
-
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  for (WindowItem* item : items) item->AppRender  ();
-
-  SDL_GL_SwapWindow(window);
-} //render
-
-void App::run() {
-  bool running = true;
-  SDL_Event event;
-
-  while (running) {
-    while (running && SDL_PollEvent(&event)) {
-      if (event.type == SDL_EVENT_QUIT) running = false;
-      handleEvent(event);
-    } 
-
-    update();
-    render();
-  }
-} //run
-
 App::~App() { 
   delete windowOrder;
   for (WindowItem* item : items) delete item;
@@ -144,35 +147,6 @@ void App::WindowItemOrder::push(WindowItem *oldI, WindowItem *newI, bool bWidth)
     if (orderOpp->at(i).contains(oldI)) orderOpp->emplace_back(oldI, orderOpp->at(i).data(), newI);
 } //push
 
-App::WindowItemOrder::WindowItemGraph *App::WindowItemOrder::findLargestGraph(bool bWidth, int *out){
-  WindowItemGraph *largest = nullptr;
-  int temp = 0;
-  *out = -1;
-  for (WindowItemGraph &i : *order) {
-    temp = i.maxShrink(bWidth);
-
-    if (temp > *out) {
-      largest = &i; 
-      *out = temp;
-    }
-  }
-  return largest;
-} //largestGraph
-
-App::WindowItemOrder::WindowItemGraph *App::WindowItemOrder::findSmallestGraph(bool bWidth, int *out){
-  WindowItemGraph *smallest = nullptr;
-  int temp = 0;
-  *out = INT_MAX;
-  for (WindowItemGraph &i : *order) {
-    temp = i.maxShrink(bWidth);
-
-    if (*out > temp) {
-      smallest = &i; 
-      *out = temp;
-    }
-  }
-  return smallest;
-} //largestGraph
 
 int App::WindowItemOrder::shrink(int delta, int rest, bool bWidth) {
   if (bWidth) setToHorizontal();
@@ -230,6 +204,36 @@ int App::WindowItemOrder::grow(int delta, int rest, bool bWidth) {
   return delta * size + rest;
 } //grow
 
+App::WindowItemOrder::WindowItemGraph *App::WindowItemOrder::findLargestGraph(bool bWidth, int *out){
+  WindowItemGraph *largest = nullptr;
+  int temp = 0;
+  *out = -1;
+  for (WindowItemGraph &i : *order) {
+    temp = i.maxShrink(bWidth);
+
+    if (temp > *out) {
+      largest = &i; 
+      *out = temp;
+    }
+  }
+  return largest;
+} //largestGraph
+
+App::WindowItemOrder::WindowItemGraph *App::WindowItemOrder::findSmallestGraph(bool bWidth, int *out){
+  WindowItemGraph *smallest = nullptr;
+  int temp = 0;
+  *out = INT_MAX;
+  for (WindowItemGraph &i : *order) {
+    temp = i.maxShrink(bWidth);
+
+    if (*out > temp) {
+      smallest = &i; 
+      *out = temp;
+    }
+  }
+  return smallest;
+} //largestGraph
+
 App::WindowItemOrder::WindowItemGraph::WindowItemGraph(WindowItem *ignore, std::vector<WindowItem*> &copy, WindowItem *add) {
   int size = copy.size();
   for (int i = 0; i < size; i++) {
@@ -238,4 +242,3 @@ App::WindowItemOrder::WindowItemGraph::WindowItemGraph(WindowItem *ignore, std::
   }
   graph.push_back(add);
 } //constructor
-
