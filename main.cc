@@ -12,7 +12,6 @@ int main() {
   Item3D<Actions3D> *sub4 = application.createWindowItem<Item3D<Actions3D>>(sub3, false);
   Item3D<Actions3D> *sub5 = application.createWindowItem<Item3D<Actions3D>>(sub1, false);
 
-
   GLclampf red[4] = {0.5f, 0.1f, 0.1f, 1.0f};
   GLclampf blue[4] = {0.1f, 0.1f, 0.5f, 1.0f};
   GLclampf green[4] = {0.1f, 0.5f, 0.1f, 1.0f};
@@ -27,9 +26,5 @@ int main() {
 
   //sub1->setMinSize(300, 300);
 
-  SDL_Log("after sbu1->update");
   application.run();
-
-  
-  
 } //main_loop

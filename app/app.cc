@@ -1,29 +1,33 @@
 #include "include/app.h"
 
-App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), window(nullptr), properties(p), windowOrder(new WindowItemOrder(&items)) {
-  int maj = (int)GL;
-  int min = (int)((GL*10.0) - maj*10);
+#include <chrono>
 
-  initialised = SDL_Init(f1) && 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, maj) &&
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, min) &&
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  
-  if (!initialised) {
-    SDL_Log("%s", SDL_GetError());
-    return;
-  }
+App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), openGL(false), window(nullptr), properties(p), windowOrder(new WindowItemOrder()) {
+  initialised = SDL_Init(f1);
 
   if (p.width < p.MinWidth) properties.width = p.MinWidth;
   if (p.height < p.MinHeight) properties.height = p.MinHeight;
 
-  window = SDL_CreateWindow(p.name, properties.width, properties.height, p.flags);
   SDL_SetWindowMinimumSize(window, p.MinWidth, p.MinHeight);
+  window = SDL_CreateWindow(p.name, properties.width, properties.height, p.flags);
+  
+  if (GL == 0.0) return;
+
+  openGL = true;
+  int maj = (int)GL;
+  int min = (int)((GL*10.0) - maj*10);
+
+  initialised = initialised && SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, maj) &&
+                               SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, min) &&
+                               SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
   context = SDL_GL_CreateContext(window);
   glewExperimental = GL_TRUE;
   initialised = glewInit() == GLEW_OK;
   glGetError();
   glEnable(GL_DEPTH_TEST);
+
+  if (!initialised) SDL_Log("%s", SDL_GetError());
 } //constructor
 
 void App::update() {
@@ -39,74 +43,50 @@ void App::handleEvent(SDL_Event e) {
   if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) 
     SDL_Log("CLICK!!!!!!!!!!");
 
-  
 } //handleEvent
 
 void App::resizeWindow(int w, int h) {
   int deltaW = w - properties.width;
   int deltaH = h - properties.height;
 
-  int diffW = (deltaW >= 0) ? growWindowWidth(deltaW) : shrinkWindowWidth(-deltaW);
-  int diffH = (deltaH >= 0) ? growWindowHeight(deltaH) : shrinkWindowHeight(-deltaH);
+  int diffW = (deltaW >= 0) ? growWindow(deltaW, true) : shrinkWindow(-deltaW, true);
+  int diffH = (deltaH >= 0) ? growWindow(deltaH, false) : shrinkWindow(-deltaH, false);
 
-  windowOrder->updateItems();
+  updateItems();
 
   properties.width += (deltaW >= 0) ? diffW : -diffW; 
   properties.height += (deltaH >= 0) ? diffH : -diffH;
-
-  // for (size_t i = 0; i < items.size(); i++) {
-  //   SDL_Log("i: %d, X : %d, Y : %d, width : %d, height %d", (int)i, items[i]->getX(), items[i]->getY(), items[i]->getWidth(), items[i]->getHeight());
-  // }
-  // SDL_Log("__________________________");
 } //resizeWindow
 
-int App::shrinkWindowWidth(int deltaX) {
-  windowOrder->setHorizontal(true);
-  int nGraphs = windowOrder->getNGraphs();
+void App::updateItems() {
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (WindowItem *item : items) if (item->updateSize()) changed = true;
+  }
+} //updateItems
+
+int App::shrinkWindow(int delta, bool w) {
+  int nGraphs = windowOrder->getNGraphs(w);
 
   if (nGraphs == 0) return 0;
 
-  int diff = deltaX / nGraphs;
-  int rest = deltaX % nGraphs;
+  int diff = delta / nGraphs;
+  int rest = delta % nGraphs;
 
-  return windowOrder->shrinkWidth(diff, rest);
+  return windowOrder->shrink(diff, rest, w);
 } //shrinkWindowWidth
 
-int App::shrinkWindowHeight(int deltaY) {
-  windowOrder->setHorizontal(false);
-  int nGraphs = windowOrder->getNGraphs();
+int App::growWindow(int delta, bool w) {
+  int nGraphs = windowOrder->getNGraphs(w);
 
   if (nGraphs == 0) return 0;
 
-  int diff = deltaY / nGraphs;
-  int rest = deltaY % nGraphs;
+  int diff = delta / nGraphs;
+  int rest = delta % nGraphs;
 
-  return windowOrder->shrinkHeight(diff, rest);
-} //shrinkWindowHeight
-
-int App::growWindowWidth(int deltaX) {
-  windowOrder->setHorizontal(true);
-  int nGraphs = windowOrder->getNGraphs();
-
-  if (nGraphs == 0) return 0;
-
-  int diff = deltaX / nGraphs;
-  int rest = deltaX % nGraphs;
-
-  return windowOrder->growWidth(diff, rest);
+  return windowOrder->grow(diff, rest, w);
 } //growWindowWidth
-
-int App::growWindowHeight(int deltaY) {
-  windowOrder->setHorizontal(false);
-  int nGraphs = windowOrder->getNGraphs();
-
-  if (nGraphs == 0) return 0;
-
-  int diff = deltaY / nGraphs;
-  int rest = deltaY % nGraphs;
-
-  return windowOrder->growHeight(diff, rest);
-} //growWindowHeight
 
 void App::render() {
   if (!initialised) return;
@@ -145,171 +125,116 @@ App::~App() {
   SDL_Quit();
 } //default destructor
 
-void App::WindowItemOrder::push(WindowItem *oldI, WindowItem *newI) {
-  std::vector<WindowItemGraph> *temp = horizontal ? &ItemsInOrderH : &ItemsInOrderV;
-  std::vector<WindowItemGraph> *tempO = !horizontal ? &ItemsInOrderH : &ItemsInOrderV;
+void App::WindowItemOrder::push(WindowItem *oldI, WindowItem *newI, bool bWidth) {
+  if (bWidth) setToHorizontal();
+  else setToVertical();
 
-  if (oldI == nullptr) {
-    temp->push_back(WindowItemGraph());
-    temp->at(0).add(newI);
-    tempO->push_back(WindowItemGraph());
-    tempO->at(0).add(newI);
+  if (oldI == nullptr) { //both orders are empty
+    order->emplace_back(newI); 
+    orderOpp->emplace_back(newI);
     return;
   }
 
-  size_t max = temp->size();
-
-  for (size_t i = 0; i < max; i++) 
-    if (temp->at(i).contains(oldI)) temp->at(i).add(newI);
+  int max = order->size();
+  for (int i = 0; i < max; i++) 
+    if (order->at(i).contains(oldI)) order->at(i).add(newI);
   
-  max = tempO->size();
-
-  for (size_t i = 0; i < max; i++) 
-    if (tempO->at(i).contains(oldI)) tempO->push_back(WindowItemGraph(oldI, tempO->at(i).data(), newI));
+  max = orderOpp->size();
+  for (int i = 0; i < max; i++) 
+    if (orderOpp->at(i).contains(oldI)) orderOpp->emplace_back(oldI, orderOpp->at(i).data(), newI);
 } //push
 
-int App::WindowItemOrder::shrinkWidth(int delta, int rest) {
-  if (ItemsInOrderH.empty()) return 0;
+App::WindowItemOrder::WindowItemGraph *App::WindowItemOrder::findLargestGraph(bool bWidth, int *out){
+  WindowItemGraph *largest = nullptr;
+  int temp = 0;
+  *out = -1;
+  for (WindowItemGraph &i : *order) {
+    temp = i.maxShrink(bWidth);
+
+    if (temp > *out) {
+      largest = &i; 
+      *out = temp;
+    }
+  }
+  return largest;
+} //largestGraph
+
+App::WindowItemOrder::WindowItemGraph *App::WindowItemOrder::findSmallestGraph(bool bWidth, int *out){
+  WindowItemGraph *smallest = nullptr;
+  int temp = 0;
+  *out = INT_MAX;
+  for (WindowItemGraph &i : *order) {
+    temp = i.maxShrink(bWidth);
+
+    if (*out > temp) {
+      smallest = &i; 
+      *out = temp;
+    }
+  }
+  return smallest;
+} //largestGraph
+
+int App::WindowItemOrder::shrink(int delta, int rest, bool bWidth) {
+  if (bWidth) setToHorizontal();
+  else setToVertical();
+
+  if (order->empty()) return 0;
+
+  int size = order->size();
   int zeroes = 0;
   int totalChange = 0;
 
-  if (delta == 0 && rest != 0) {
+  if (delta == 0) {
     for (int idx = 0; idx < rest; idx++) {
-      int maxI = 0;
-      int maxWidth = -1;
-      int temp;
-      for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
-        temp = ItemsInOrderH[i].maxShrinkageWidth();
-        if (temp > maxWidth) {
-          maxI = i;
-          maxWidth = temp;
-        }
-      }
-      if (maxWidth != -1) {
-        ItemsInOrderH[maxI].shrinkWidth(1); 
-      } else {return idx;}
+      int maxWidth = 0; 
+      WindowItemGraph *largest = findLargestGraph(bWidth, &maxWidth);
+      if (maxWidth != -1) {largest->grow(-1, bWidth);} 
+      else {return idx;}
     }
     return rest;
   }
 
-  for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
-    int max = ItemsInOrderH[i].maxShrinkageWidth();
-
+  int max;
+  for (WindowItemGraph &i : *order) {
+    max = i.maxShrink(bWidth);
     if (max <= 0) {zeroes++; continue;} 
 
     if (max < delta) rest += delta-max;
     else max = delta;
 
-    ItemsInOrderH[i].shrinkWidth(max);
+    i.grow(-max, bWidth);
     totalChange += max;
   }
 
-  if (zeroes != (int)ItemsInOrderH.size() && rest != 0) 
-    totalChange += shrinkWidth(rest / (ItemsInOrderH.size()-zeroes), (rest % (ItemsInOrderH.size()-zeroes)));
+  if (zeroes != size && rest != 0) 
+    totalChange += shrink(rest / (size-zeroes), (rest % (size-zeroes)), bWidth);
 
   return totalChange;
-}
+} //shrink
 
-int App::WindowItemOrder::growWidth(int delta, int rest) {
-  if (ItemsInOrderH.empty()) return 0;
+int App::WindowItemOrder::grow(int delta, int rest, bool bWidth) {
+  if (bWidth) setToHorizontal();
+  else setToVertical();
+  
+  if (order->empty()) return 0;
+
+  int size = order->size();
   int min = INT_MAX;
-  int minI = 0;
 
-  for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
-    ItemsInOrderH[i].growWidth(delta);
-  }
+  for (int i = 0; i < size; i++) 
+    order->at(i).grow(delta, bWidth);
 
-  for (int idx = 0; idx < rest; idx++) {
-    for (size_t i = 0; i < ItemsInOrderH.size(); i++) {
-      int temp = ItemsInOrderH[i].maxShrinkageWidth();
-      if (min > temp) {
-        min = temp;
-        minI = i;
-      }
-    }
-    ItemsInOrderH[minI].growWidth(1); 
-  }
+  for (int idx = 0; idx < rest; idx++) 
+    findSmallestGraph(bWidth, &min)->grow(1, bWidth);
 
-  return delta*ItemsInOrderH.size() + rest;
-}
+  return delta * size + rest;
+} //grow
 
-int App::WindowItemOrder::shrinkHeight(int delta, int rest) {
-  if (ItemsInOrderV.empty()) return 0;
-  int zeroes = 0;
-  int totalChange = 0;
-
-  if (delta == 0 && rest != 0) {
-    for (int idx = 0; idx < rest; idx++) {
-      int maxI = 0;
-      int max = 0;
-      for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
-        int temp = ItemsInOrderV[i].maxShrinkageHeight();
-        if (temp > max) {
-          maxI = i;
-          max = temp;
-        }
-      }
-      if (max > 0) {
-        ItemsInOrderV[maxI].shrinkHeight(1); 
-      } else {return idx;}
-    }
-    return rest;
-  }
-
-  for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
-    int max = ItemsInOrderV[i].maxShrinkageHeight();
-
-    if (max <= 0) {zeroes++; continue;} 
-
-    if (max < delta) rest += delta-max;
-    else max = delta;
-
-    ItemsInOrderV[i].shrinkHeight(max);
-    totalChange += max;
-  }
-
-  if (zeroes != (int)ItemsInOrderV.size() && rest != 0) 
-    totalChange += shrinkHeight(rest / (ItemsInOrderV.size()-zeroes), (rest % (ItemsInOrderV.size()-zeroes)));
-
-  return totalChange;
-}
-
-int App::WindowItemOrder::growHeight(int delta, int rest) {
-  if (ItemsInOrderV.empty()) return 0;
-
-  for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
-    ItemsInOrderV[i].growHeight(delta);
-  }
-
-  for (int idx = 0; idx < rest; idx++) {
-    int min = INT_MAX;
-    int minI = 0;
-    for (size_t i = 0; i < ItemsInOrderV.size(); i++) {
-      int temp = ItemsInOrderV[i].maxShrinkageHeight();
-      if (min > temp) {
-        min = temp;
-        minI = i;
-      }
-    }
-
-    ItemsInOrderV[minI].growHeight(1); 
-  }
-
-  return delta*ItemsInOrderV.size() + rest;
-}
-
-void App::WindowItemOrder::updateItems() {
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (WindowItem *item : *items) if (item->updateSize()) changed = true;
-  }
-}
-
-App::WindowItemOrder::WindowItemGraph::WindowItemGraph(WindowItem *ignore, std::vector<WindowItem*>* copy, WindowItem *add) {
-  for (size_t i = 0; i < copy->size(); i++) {
-    if (copy->at(i) == ignore) continue;
-    graph.push_back(copy->at(i));
+App::WindowItemOrder::WindowItemGraph::WindowItemGraph(WindowItem *ignore, std::vector<WindowItem*> &copy, WindowItem *add) {
+  int size = copy.size();
+  for (int i = 0; i < size; i++) {
+    if (copy.at(i) == ignore) continue;
+    graph.push_back(copy.at(i));
   }
   graph.push_back(add);
 } //constructor

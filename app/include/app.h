@@ -45,6 +45,7 @@ class App {
   class WindowItemOrder;
   private:
     bool initialised;
+    bool openGL;
 
     SDL_Window* window;
     S_WindProp properties;
@@ -55,15 +56,21 @@ class App {
     std::deque<int> coordArena;
 
     void resizeWindow(int width, int height);
+
     /* 
       Helper functions for resizeWindow
       Seperates logic for Width, Height; Growth and Shrinkage 
       Parameter : How much the window needs to change 
       Returns : How much the window was changed (negative for shrinking)
     */
-    int shrinkWindowWidth(int deltaX), shrinkWindowHeight(int deltaY), 
-        growWindowWidth(int deltaX), growWindowHeight(int deltaY);
+    int shrinkWindow(int delta, bool width), growWindow(int delta, bool width);
 
+
+    /*
+      Function that updates all starting positions for every item
+      should be called after having shrunk or grown any windows
+    */
+    void updateItems();
   public:
     App() = delete;
 
@@ -102,51 +109,81 @@ class App {
 
 /*
   Helper Class for App to store the order of windowItems when resizing
-   Contains functions that make it easier to manage the resizing of the window
+  Contains functions that make it easier to manage the resizing of the window
 */
 class App::WindowItemOrder {
   struct WindowItemGraph;
   private: 
-    std::vector<WindowItemGraph> ItemsInOrderH{};
-    std::vector<WindowItemGraph> ItemsInOrderV{};
-    std::vector<WindowItem*>* items;
+    std::vector<WindowItemGraph> itemsInOrderH{};
+    std::vector<WindowItemGraph> itemsInOrderV{};
 
-    bool horizontal = true;
+    std::vector<WindowItemGraph>* order = &itemsInOrderH;
+    std::vector<WindowItemGraph>* orderOpp = &itemsInOrderV;
+
+    //Function to switch mode of class to horizontal 
+    void setToHorizontal() {order = &itemsInOrderH; orderOpp = &itemsInOrderV;};
+    //Function to switch mode of class to vertical 
+    void setToVertical() {order = &itemsInOrderV; orderOpp = &itemsInOrderH;};
+
+    /*
+      Finds Largest or Smallest graph 
+      (A graph that can either shrink the most or grow the most)
+
+      Parameters: 
+        bWidth : boolean to indicate which dimension to search in
+          --true -> width
+          --false -> height
+        *out : pointer to an integer that will contain amount of growth or shrinkage
+      
+      Returns:
+        Pointer to the graph that is either largest or smallest
+    */
+    WindowItemGraph *findLargestGraph(bool bWidth, int *out),
+                    *findSmallestGraph(bool bWidth, int *out);
+
   public: 
-    WindowItemOrder(std::vector<WindowItem*>* i) : items(i) {}
+    //default constructor
+    WindowItemOrder(){}
+
     /*
       Pushes new windowItem into the order vectors and graphs
-      Depending on current Horizontal value pushes to either horizontal or vertical graph
+
       Parameters: 
         prevItem : WindowItem that was just split in half
         item : new Item that needs to be pushed into vectors
+        width : boolean value to indicate if there was a horizontal split or vertical split
+          -- true -> horizontal split
+          -- false -> vertical split
     */
-    void push(WindowItem *prevItem, WindowItem *item);
+    void push(WindowItem *prevItem, WindowItem *item, bool width);
+
+
+    /* 
+      Getter for amount of graphs in a direction 
+      
+      Parameters : 
+        width : boolean to indicate Horizontal graphs or Vertical graphs
+
+      Returns :
+        amount of graphs in specified direction
+    */
+    int getNGraphs(bool width) {return width ? itemsInOrderH.size() : itemsInOrderV.size();};
 
     /*
-      Setter for Horizontal boolean, if set to true every other function will perform on
-      horizontal graphs, if false all other functions will perform on vertical graphs
-      Parameters: 
-        boolean : value to set horizontal to 
+      Function that shrinks/grows every WindowItem graph correctly and according to limits
+
+      Parameters :
+        delta : amount that every graph needs to shrink/grow
+        rest : extra amount that needs to be shrunk/grown but can not be divided equally
+        width : boolean to indicicate which dimension to shrink/grow
+          -- true -> width
+          -- false -> height
+      
+      Returns : 
+        total amount that was shrunk or grown
     */
-    void setHorizontal(bool boolean) {horizontal = boolean;}
-
-    /* -----------------------------------------------------
-      getters
-    */
-    int getNGraphs() {return horizontal ? ItemsInOrderH.size() : ItemsInOrderV.size();};
-
-    int shrinkWidth(int delta, int rest);
-    int growWidth(int delta, int rest);
-    int shrinkHeight(int delta, int rest);
-    int growHeight(int delta, int rest);
-
-    void updateItems();
-
-    // /*
-    //   Indexing operator, returns either horizontal or vertical depending on Horizontal boolean
-    // */
-    // WindowItemGraph &operator[](int idx) {return horizontal ? ItemsInOrderH[idx] : ItemsInOrderV[idx];}
+    int shrink(int delta, int rest, bool width), 
+        grow(int delta, int rest, bool width);
 };
 
 /*
@@ -159,21 +196,32 @@ struct App::WindowItemOrder::WindowItemGraph {
   WindowItemGraph(){};
 
   /*
+    Default constructor when wanting to initialise the graph with an item
+    
+    Parameters: 
+      item : item that is pushed into the graph 
+  */
+  WindowItemGraph(WindowItem* item){add(item);};
+
+  /*
     Custom constructor for a new graph
     copies the vector {copy} and pushes all its items into a new graph 
     except for the item with id {ignore}, then afterwards pushes item with id {add}
     into the graph
+
     Parameters: 
       ignore : item to be ignored (so not copied)
       copy : vector to copy 
       add : item to be pushed onto graph after copying
   */
-  WindowItemGraph(WindowItem *ignore, std::vector<WindowItem*> *copy, WindowItem *add);
+  WindowItemGraph(WindowItem *ignore, std::vector<WindowItem*> &copy, WindowItem *add);
 
   /*
     Member function for graph
+
     Parameters: 
       item : WindowItem id that is looked for in the graph
+
     Returns:
       true if item is in the graph
       false otherwise
@@ -182,29 +230,49 @@ struct App::WindowItemOrder::WindowItemGraph {
     if (graph.empty()) return false;
     for (WindowItem *i : graph) if (item == i) return true;
     return false;
-  }
+  } //contains
 
-  int maxShrinkageHeight() {
+  /*
+    Function that returns how much the graph can still shrink in either height or width
+
+    Parameters : 
+      width : boolean to indicate wether to return width or height value
+        -- true -> calculates for width
+        -- false -> calculates for height
+    
+    Returns : 
+      The max amount the wanted dimension can still shrink
+  */
+  int maxShrink(bool width) {
     int min = INT_MAX;
-    for (WindowItem *item : graph) 
-      if (min > item->leftoverHeight()) min = item->leftoverHeight();
+    for (WindowItem *item : graph) {
+      if (width && min > item->leftoverWidth()) min = item->leftoverWidth();
+      else if (!width && min > item->leftoverHeight()) min = item->leftoverHeight();
+    }
     return min;
-  }
+  } //maxShrink
 
-  int maxShrinkageWidth() {
-    int min = INT_MAX;
-    for (WindowItem *item : graph) 
-      if (min > item->leftoverWidth()) min = item->leftoverWidth();
-    return min;
-  }
+  /* 
+    Grows a window item by delta (can be negative to shrink)
 
-  void shrinkWidth(int delta) {for (WindowItem *item : graph) item->changeWidth(-delta);}
-  void growWidth(int delta) {for (WindowItem *item : graph) item->changeWidth(delta);}
-  void shrinkHeight(int delta) {for (WindowItem *item : graph) item->changeHeight(-delta);}
-  void growHeight(int delta) {for (WindowItem *item : graph) item->changeHeight(delta);}
+    Parameters :
+      delta : amount to change the window size with
+      width : boolean to indicate wether or not it is a width or height change
+        -- true -> width is changed
+        -- false -> height is changed
+  */
+  void grow(int delta, bool width) {
+    for (WindowItem *item : graph) {
+      if (width)
+        item->changeWidth(delta);
+      else 
+        item->changeHeight(delta);
+    }
+  } //grow
 
   /*
     Pushes item onto graph
+
     Parameters: 
       item : item to be pushed
   */
@@ -213,7 +281,7 @@ struct App::WindowItemOrder::WindowItemGraph {
   /*
     Gives graph data in the form of a vector<int> *
   */
-  std::vector<WindowItem*> *data() {return &graph;}
+  std::vector<WindowItem*> &data() {return graph;}
 };
 
 template <typename T>
@@ -224,9 +292,8 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
   WindowItem *temp = reinterpret_cast<WindowItem *>(i);
 
   if (items.size() == 0) {
-    SDL_Log("Red with: %d, %d", properties.width, properties.height);
     items.push_back(temp);
-    windowOrder->push(nullptr, temp);
+    windowOrder->push(nullptr, temp, hori);
     coordArena.push_back(0);
     coordArena.push_back(0);
     coordArena.push_back(properties.width);
@@ -244,8 +311,6 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
   int WIDTH = item->getWidth();
   int HEIGHT = item->getHeight();
 
-  SDL_Log("Width : %d, Hieght : %d", WIDTH, HEIGHT);
-
   if (hori) {
     int height2 = (HEIGHT / 2);
 
@@ -257,8 +322,6 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
     coordArena.push_back(height2);
     temp->setTop(&coordArena.back());
     item->setBottom(temp->getTop());
-    //item bottom = temp height
-    //copy affected from certain axis and direction
 
   } else {
     int width1 = (WIDTH / 2) + (WIDTH % 2);
@@ -270,21 +333,13 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
     coordArena.push_back(width1);
     temp->setLeft(&coordArena.back());
     item->setRight(temp->getLeft());
-
-    //copy affected from certain axis and direction
   }
 
   temp->initSize();
   item->initSize();
-  windowOrder->setHorizontal(hori);
-  windowOrder->push(item, temp);
+  windowOrder->push(item, temp, hori);
 
   items.push_back(temp);
-
-  for (size_t i = 0; i < items.size(); i++) {
-    SDL_Log("i: %d, X : %d, Y : %d, width : %d, height %d", (int)i, items[i]->getX(), items[i]->getY(), items[i]->getWidth(), items[i]->getHeight());
-  }
-  SDL_Log("__________________________");
 
   return i;
 } //createWindowItem
