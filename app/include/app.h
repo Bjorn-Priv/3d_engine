@@ -53,7 +53,38 @@ class App {
     std::vector<WindowItem*> items;
     WindowItemOrder *windowOrder;
 
+    SDL_Cursor *cursor;
+    int prevType = 0;
+    bool mouseDown = false;
+    int deltaBorder = 3;
+    int *MouseX = nullptr, *MouseY = nullptr;
+
     std::deque<int> coordArena;
+
+
+    /*
+      Helper function that pushes an integer into the arena 
+      and returns a pointer to it
+
+      Parameters:
+        integer : the integer to push into the arena
+
+      Returns : pointer to integer within arena
+    */
+    int *pushArena(int integer) {
+      coordArena.push_back(integer);
+      return &coordArena.back();
+    }
+
+    int *verticalBorderAt(int x, int y);
+
+    int *horizontalBorderAt(int x, int y);
+
+    void handleClickDown(SDL_Event e);
+
+    void handleClickUp(SDL_Event e);
+
+    void handleMouseMove(SDL_Event e);
 
     /*
       Helper function for resizing window action
@@ -330,14 +361,10 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
   if (items.size() == 0) {
     items.push_back(temp);
     windowOrder->push(nullptr, temp, hori);
-    coordArena.push_back(0);
-    coordArena.push_back(0);
-    coordArena.push_back(properties.width);
-    coordArena.push_back(properties.height);
-    temp->setLeft(&coordArena[0]);
-    temp->setBottom(&coordArena[1]);
-    temp->setRight(&coordArena[2]);
-    temp->setTop(&coordArena[3]);
+    temp->setLeft(pushArena(0));
+    temp->setBottom(pushArena(0));
+    temp->setRight(pushArena(properties.width));
+    temp->setTop(pushArena(properties.height));
     temp->initSize();
     return i;
   }
@@ -348,26 +375,21 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
   int HEIGHT = item->getHeight();
 
   if (hori) {
-    int height2 = (HEIGHT / 2);
-
+    int height = (HEIGHT / 2);
     temp->setLeft(item->getLeft());
     temp->setRight(item->getRight());
-
     temp->setBottom(item->getBottom());
 
-    coordArena.push_back(height2);
-    temp->setTop(&coordArena.back());
+    temp->setTop(pushArena(height));
     item->setBottom(temp->getTop());
 
   } else {
-    int width1 = (WIDTH / 2) + (WIDTH % 2);
-
+    int width = (WIDTH / 2) + (WIDTH % 2);
     temp->setTop(item->getTop());
     temp->setBottom(item->getBottom());
     temp->setRight(item->getRight());
 
-    coordArena.push_back(width1);
-    temp->setLeft(&coordArena.back());
+    temp->setLeft(pushArena(width));
     item->setRight(temp->getLeft());
   }
 
@@ -376,7 +398,6 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
   windowOrder->push(item, temp, hori);
 
   items.push_back(temp);
-
   return i;
 } //createWindowItem
 

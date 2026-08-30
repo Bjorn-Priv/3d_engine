@@ -87,7 +87,7 @@ class WindowItem {
       width = *right - *left;
       height = *top - *bottom;
     } 
-
+    
     /*
       User defined update and render functions 
       Users have to implement these for their derived classes

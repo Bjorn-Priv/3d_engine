@@ -2,6 +2,10 @@
 
 #include <chrono>
 
+bool intLimDel(int o, int lim, int delta) {
+  return o >= lim-delta && o <= lim+delta;
+}
+
 App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), openGL(false), window(nullptr), properties(p), windowOrder(new WindowItemOrder()) {
   initialised = SDL_Init(f1);
 
@@ -71,9 +75,77 @@ void App::handleEvent(SDL_Event e) {
   if (e.type == SDL_EVENT_WINDOW_RESIZED)  //window is resized
     resizeWindow(e.window.data1, e.window.data2);
   if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) 
-    SDL_Log("CLICK!!!!!!!!!!");
+    handleClickDown(e);
+  if (e.type == SDL_EVENT_MOUSE_BUTTON_UP)
+    handleClickUp(e);
+  if (e.type == SDL_EVENT_MOUSE_MOTION) 
+    handleMouseMove(e);
 
 } //handleEvent
+
+void App::handleClickDown(SDL_Event e) {
+  mouseDown = true;
+  MouseX = verticalBorderAt(e.button.x, properties.height-(int)e.button.y);
+  MouseY = horizontalBorderAt(e.button.x, properties.height-(int)e.button.y);
+  if (MouseX != nullptr || MouseY != nullptr) {
+    SDL_Log("ON BORDER!!!!!");}
+}
+
+void App::handleClickUp(SDL_Event e) {
+  mouseDown = false;
+  MouseX = nullptr;
+  MouseY = nullptr;
+}
+
+void App::handleMouseMove(SDL_Event e) {
+  int *vert = verticalBorderAt(e.button.x, properties.height-(int)e.button.y);
+  int *hori = horizontalBorderAt(e.button.x, properties.height-(int)e.button.y);
+
+  int type = 0;
+  if (vert) type += 1;
+  if (hori) type += 2;
+
+  if (type != prevType) {
+    SDL_SystemCursor cursorID;
+    if (type == 0) cursorID = SDL_SYSTEM_CURSOR_DEFAULT;
+    if (type == 1) cursorID = SDL_SYSTEM_CURSOR_EW_RESIZE;
+    if (type == 2) cursorID = SDL_SYSTEM_CURSOR_NS_RESIZE;
+    if (type == 3) cursorID = SDL_SYSTEM_CURSOR_MOVE;
+
+    SDL_DestroyCursor(cursor);
+    cursor = SDL_CreateSystemCursor(cursorID);
+    SDL_SetCursor(cursor);
+    prevType = type;
+  }
+
+  if (MouseX == nullptr && MouseY == nullptr) return;
+  if (MouseX != nullptr) *MouseX = e.motion.x;
+  if (MouseY != nullptr) *MouseY = (properties.height-(int)e.motion.y);
+  for (WindowItem *item : items) 
+    item->initSize();
+}
+
+int *App::verticalBorderAt(int x, int y) {
+  if (intLimDel(x, properties.width, deltaBorder)) return nullptr;
+  if (intLimDel(x, 0, deltaBorder)) return nullptr;
+  for (WindowItem *item : items) {
+    if (y < *item->getBottom()+deltaBorder || y > *item->getTop()+deltaBorder) continue;
+    if (intLimDel(x, *item->getLeft(), deltaBorder)) return item->getLeft();
+    if (intLimDel(x, *item->getRight(), deltaBorder)) return item->getRight();
+  }
+  return nullptr; 
+}
+
+int *App::horizontalBorderAt(int x, int y) {
+  if (intLimDel(y, properties.height, deltaBorder)) return nullptr;
+  if (intLimDel(y, 0, deltaBorder)) return nullptr;
+  for (WindowItem *item : items) {
+    if (x < *item->getLeft()+deltaBorder || x > *item->getRight()+deltaBorder) continue;
+    if (intLimDel(y, *item->getTop(), deltaBorder)) return item->getTop();
+    if (intLimDel(y, *item->getBottom(), deltaBorder)) return item->getBottom();
+  }
+  return nullptr; 
+}
 
 void App::resizeWindow(int w, int h) {
   int deltaW = w - properties.width;
