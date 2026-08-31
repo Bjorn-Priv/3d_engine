@@ -2,9 +2,21 @@
 
 #include <chrono>
 
-bool intLimDel(int o, int lim, int delta) {
-  return o >= lim-delta && o <= lim+delta;
-}
+/*
+  Function that checks if a number is within a certain error of another number
+  
+  Parameters: 
+    num : integer that we want to compare for
+    lim : integer that we compare against 
+    delta : amount that num is allowed to diverge from lim
+
+  Returns: 
+    True -> num is between or equal to lim-delta and lim+delta
+    False otherwise
+*/
+bool intLimDel(int num, int lim, int delta) {
+  return num >= lim-delta && num <= lim+delta;
+} //intLimDel
 
 App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), openGL(false), window(nullptr), properties(p), windowOrder(new WindowItemOrder()) {
   initialised = SDL_Init(f1);
@@ -111,18 +123,43 @@ void App::handleMouseMove(SDL_Event e) {
     if (type == 1) cursorID = SDL_SYSTEM_CURSOR_EW_RESIZE;
     if (type == 2) cursorID = SDL_SYSTEM_CURSOR_NS_RESIZE;
     if (type == 3) cursorID = SDL_SYSTEM_CURSOR_MOVE;
-
-    SDL_DestroyCursor(cursor);
-    cursor = SDL_CreateSystemCursor(cursorID);
-    SDL_SetCursor(cursor);
+    setCursor(cursorID);
     prevType = type;
   }
 
   if (MouseX == nullptr && MouseY == nullptr) return;
-  if (MouseX != nullptr) *MouseX = e.motion.x;
-  if (MouseY != nullptr) *MouseY = (properties.height-(int)e.motion.y);
+
+  int x = e.motion.x;
+  int y = (properties.height-(int)e.motion.y);
+
+  for (WindowItem *item : items) {
+    if (MouseX == item->getLeft() && x > *MouseX) 
+      if (item->leftoverWidth() < (x - *MouseX)) 
+        x = *MouseX + item->leftoverWidth();
+    
+    if (MouseX == item->getRight() && x < *MouseX) 
+      if (item->leftoverWidth() < (*MouseX - x)) 
+        x = *MouseX - item->leftoverWidth();
+    
+    if (MouseY == item->getBottom() && y > *MouseY) 
+      if (item->leftoverHeight() < (y - *MouseY)) 
+        y = *MouseY + item->leftoverHeight();
+    
+    if (MouseY == item->getTop() && y < *MouseY) 
+      if (item->leftoverHeight() < (*MouseY - y)) 
+        y = *MouseY - item->leftoverHeight();
+  }
+
+  if (MouseX != nullptr) *MouseX = x;
+  if (MouseY != nullptr) *MouseY = y;
   for (WindowItem *item : items) 
     item->initSize();
+}
+
+void App::setCursor(SDL_SystemCursor type) {
+  SDL_DestroyCursor(cursor);
+  cursor = SDL_CreateSystemCursor(type);
+  SDL_SetCursor(cursor);
 }
 
 int *App::verticalBorderAt(int x, int y) {

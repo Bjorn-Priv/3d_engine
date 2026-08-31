@@ -61,7 +61,6 @@ class App {
 
     std::deque<int> coordArena;
 
-
     /*
       Helper function that pushes an integer into the arena 
       and returns a pointer to it
@@ -75,6 +74,8 @@ class App {
       coordArena.push_back(integer);
       return &coordArena.back();
     }
+
+    void setCursor(SDL_SystemCursor type);
 
     int *verticalBorderAt(int x, int y);
 
