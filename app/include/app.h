@@ -75,26 +75,93 @@ class App {
       return &coordArena.back();
     }
 
-    void setCursor(SDL_SystemCursor type);
+    /*
+      Helper function that handles mouse click
 
+      Parameter: 
+        event : SDL event data 
+    */
+    void handleClickDown(SDL_Event event);
+
+    /*
+      Helper function that handles mouse click release
+
+      Parameter: 
+        event : SDL event data 
+    */
+    void handleClickUp(SDL_Event event);
+
+    /*
+      Helper function that handles mouse movement
+
+      Parameter: 
+        event : SDL event data 
+    */
+    void handleMouseMove(SDL_Event event);
+
+    /*
+      Helper function that handles mouse movement 
+      when borders are being held by the mouse
+
+      should only be called if borders are being dragged
+
+      Parameter: 
+        event : SDL event data 
+    */
+    void moveBorders(SDL_Event event);
+
+
+    /*
+      Helper function that checks if there is a vertical border at x, y
+      in the window, and returns the border
+
+      Parameters: 
+        x : x coordinate within window
+        y : y coordinate within window
+
+      Returns:
+        pointer to the vertical border
+    */
     int *verticalBorderAt(int x, int y);
 
+    /*
+      Helper function that checks if there is a horizontal border at x, y
+      in the window, and returns the border
+
+      Parameters: 
+        x : x coordinate within window
+        y : y coordinate within window
+
+      Returns:
+        pointer to the horizontal border
+    */
     int *horizontalBorderAt(int x, int y);
 
-    void handleClickDown(SDL_Event e);
+    /*
+      Helper function that handles the cursor that is shown 
+      based on the sort of subwindow border it is on
 
-    void handleClickUp(SDL_Event e);
+      Parameters: 
+        hori : horizontal border pointer (nullptr if no border)
+        vert : vertical border pointer (nullptr if no border)
+    */
+    void handleBorderCursor(int* hori, int* vert);
 
-    void handleMouseMove(SDL_Event e);
+    /*
+      Function that creates a new cursor object and deletes the old one
+
+      Parameter: 
+        type : SDL_SystemCursor enum type of new cursor
+    */
+    void setCursor(SDL_SystemCursor type);
 
     /*
       Helper function for resizing window action
 
       Parameters: 
-        width : new width of window
-        height : new height of window
+        event : SDL_Event data
     */
-    void resizeWindow(int width, int height);
+    void resizeWindow(SDL_Event event);
 
     /* 
       Helper functions for resizeWindow

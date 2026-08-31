@@ -85,7 +85,7 @@ void App::render() {
 void App::handleEvent(SDL_Event e) {
   if (!initialised) return;
   if (e.type == SDL_EVENT_WINDOW_RESIZED)  //window is resized
-    resizeWindow(e.window.data1, e.window.data2);
+    resizeWindow(e);
   if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) 
     handleClickDown(e);
   if (e.type == SDL_EVENT_MOUSE_BUTTON_UP)
@@ -99,8 +99,7 @@ void App::handleClickDown(SDL_Event e) {
   mouseDown = true;
   MouseX = verticalBorderAt(e.button.x, properties.height-(int)e.button.y);
   MouseY = horizontalBorderAt(e.button.x, properties.height-(int)e.button.y);
-  if (MouseX != nullptr || MouseY != nullptr) {
-    SDL_Log("ON BORDER!!!!!");}
+  
 }
 
 void App::handleClickUp(SDL_Event e) {
@@ -110,25 +109,16 @@ void App::handleClickUp(SDL_Event e) {
 }
 
 void App::handleMouseMove(SDL_Event e) {
-  int *vert = verticalBorderAt(e.button.x, properties.height-(int)e.button.y);
   int *hori = horizontalBorderAt(e.button.x, properties.height-(int)e.button.y);
+  int *vert = verticalBorderAt(e.button.x, properties.height-(int)e.button.y);
 
-  int type = 0;
-  if (vert) type += 1;
-  if (hori) type += 2;
-
-  if (type != prevType) {
-    SDL_SystemCursor cursorID;
-    if (type == 0) cursorID = SDL_SYSTEM_CURSOR_DEFAULT;
-    if (type == 1) cursorID = SDL_SYSTEM_CURSOR_EW_RESIZE;
-    if (type == 2) cursorID = SDL_SYSTEM_CURSOR_NS_RESIZE;
-    if (type == 3) cursorID = SDL_SYSTEM_CURSOR_MOVE;
-    setCursor(cursorID);
-    prevType = type;
-  }
+  handleBorderCursor(hori, vert);
 
   if (MouseX == nullptr && MouseY == nullptr) return;
+  moveBorders(e);
+}
 
+void App::moveBorders(SDL_Event e) {
   int x = e.motion.x;
   int y = (properties.height-(int)e.motion.y);
 
@@ -154,6 +144,22 @@ void App::handleMouseMove(SDL_Event e) {
   if (MouseY != nullptr) *MouseY = y;
   for (WindowItem *item : items) 
     item->initSize();
+}
+
+void App::handleBorderCursor(int* hori, int* vert) {
+  int type = 0;
+  if (vert) type += 1;
+  if (hori) type += 2;
+
+  if (type != prevType) {
+    SDL_SystemCursor cursorID;
+    if (type == 0) cursorID = SDL_SYSTEM_CURSOR_DEFAULT;
+    if (type == 1) cursorID = SDL_SYSTEM_CURSOR_EW_RESIZE;
+    if (type == 2) cursorID = SDL_SYSTEM_CURSOR_NS_RESIZE;
+    if (type == 3) cursorID = SDL_SYSTEM_CURSOR_MOVE;
+    setCursor(cursorID);
+    prevType = type;
+  }
 }
 
 void App::setCursor(SDL_SystemCursor type) {
@@ -184,9 +190,9 @@ int *App::horizontalBorderAt(int x, int y) {
   return nullptr; 
 }
 
-void App::resizeWindow(int w, int h) {
-  int deltaW = w - properties.width;
-  int deltaH = h - properties.height;
+void App::resizeWindow(SDL_Event e) {
+  int deltaW = e.window.data1 - properties.width;
+  int deltaH = e.window.data2 - properties.height;
 
   int diffW = (deltaW >= 0) ? growWindow(deltaW, true) : shrinkWindow(-deltaW, true);
   int diffH = (deltaH >= 0) ? growWindow(deltaH, false) : shrinkWindow(-deltaH, false);
