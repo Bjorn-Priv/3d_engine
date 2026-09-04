@@ -50,13 +50,14 @@ class App {
     SDL_Window* window;
     S_WindProp properties;
     SDL_GLContext context;
+
     std::vector<WindowItem*> items;
     WindowItemOrder *windowOrder;
 
+    WindowItem *active;
+
     SDL_Cursor *cursor;
     int prevType = 0;
-    bool mouseDown = false;
-    int deltaBorder = 3;
     int *MouseX = nullptr, *MouseY = nullptr;
 
     std::deque<int> coordArena;
@@ -110,7 +111,6 @@ class App {
     */
     void moveBorders(SDL_Event event);
 
-
     /*
       Helper function that checks if there is a vertical border at x, y
       in the window, and returns the border
@@ -136,6 +136,8 @@ class App {
         pointer to the horizontal border
     */
     int *horizontalBorderAt(int x, int y);
+
+    void setActive(SDL_Event event);
 
     /*
       Helper function that handles the cursor that is shown 
@@ -223,15 +225,15 @@ class App {
       if creating an item for the first time, parameters do not matter and can be arbitrary values
 
       Parameters: 
-        Item : ID of windowItem that has to be split
-        Horizontal : boolean to indicate how to split the window with {ID} 
+        item : ID of windowItem that has to be split
+        horizontal : boolean to indicate how to split subwindow {item}
           --true -> horizontally
           --false -> vertically
 
       returns: Pointer to the window item
     */
     template <typename T>
-    T *createWindowItem(WindowItem *Item, bool Horizontal);
+    T *createWindowItem(WindowItem *item, bool horizontal);
 
     /* 
       Main function to run the app
@@ -434,6 +436,7 @@ T *App::createWindowItem(WindowItem *item, bool hori) {
     temp->setRight(pushArena(properties.width));
     temp->setTop(pushArena(properties.height));
     temp->initSize();
+    active = temp;
     return i;
   }
 

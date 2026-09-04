@@ -21,3 +21,19 @@ void WindowItem::AppRender() {
     glDisable(GL_SCISSOR_TEST);
   }
 }
+
+void WindowItem::handleClickDown(SDL_Event e) {
+
+}
+
+void WindowItem::handleClickUp(SDL_Event e) {
+
+}
+
+void WindowItem::handleMouseMove(SDL_Event e) {
+
+}
+
+void WindowItem::handleInput(SDL_Event e) {
+
+}

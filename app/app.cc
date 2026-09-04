@@ -42,6 +42,7 @@ App::App(SDL_InitFlags f1, double GL, S_WindProp p) : initialised(true), openGL(
   initialised = glewInit() == GLEW_OK;
   glGetError();
   glEnable(GL_DEPTH_TEST);
+  cursor = SDL_GetCursor();
 
   if (!initialised) SDL_Log("%s", SDL_GetError());
 } //constructor
@@ -96,16 +97,16 @@ void App::handleEvent(SDL_Event e) {
 } //handleEvent
 
 void App::handleClickDown(SDL_Event e) {
-  mouseDown = true;
   MouseX = verticalBorderAt(e.button.x, properties.height-(int)e.button.y);
   MouseY = horizontalBorderAt(e.button.x, properties.height-(int)e.button.y);
-  
+  if (!MouseX && !MouseY) setActive(e);
+  active->handleClickDown(e);
 }
 
 void App::handleClickUp(SDL_Event e) {
-  mouseDown = false;
   MouseX = nullptr;
   MouseY = nullptr;
+  active->handleClickUp(e);
 }
 
 void App::handleMouseMove(SDL_Event e) {
@@ -114,7 +115,10 @@ void App::handleMouseMove(SDL_Event e) {
 
   handleBorderCursor(hori, vert);
 
-  if (MouseX == nullptr && MouseY == nullptr) return;
+  if (MouseX == nullptr && MouseY == nullptr) {
+    active->handleMouseMove(e);
+    return;
+  }
   moveBorders(e);
 }
 
@@ -169,25 +173,37 @@ void App::setCursor(SDL_SystemCursor type) {
 }
 
 int *App::verticalBorderAt(int x, int y) {
-  if (intLimDel(x, properties.width, deltaBorder)) return nullptr;
-  if (intLimDel(x, 0, deltaBorder)) return nullptr;
+  if (intLimDel(x, properties.width, 10)) return nullptr;
+  if (intLimDel(x, 0, 10)) return nullptr;
   for (WindowItem *item : items) {
-    if (y < *item->getBottom()+deltaBorder || y > *item->getTop()+deltaBorder) continue;
-    if (intLimDel(x, *item->getLeft(), deltaBorder)) return item->getLeft();
-    if (intLimDel(x, *item->getRight(), deltaBorder)) return item->getRight();
+    if (y < *item->getBottom()+item->getBDist() || y > *item->getTop()+item->getBDist()) continue;
+    if (intLimDel(x, *item->getLeft(), item->getBDist())) return item->getLeft();
+    if (intLimDel(x, *item->getRight(), item->getBDist())) return item->getRight();
   }
   return nullptr; 
 }
 
 int *App::horizontalBorderAt(int x, int y) {
-  if (intLimDel(y, properties.height, deltaBorder)) return nullptr;
-  if (intLimDel(y, 0, deltaBorder)) return nullptr;
+  if (intLimDel(y, properties.height, 10)) return nullptr;
+  if (intLimDel(y, 0, 10)) return nullptr;
   for (WindowItem *item : items) {
-    if (x < *item->getLeft()+deltaBorder || x > *item->getRight()+deltaBorder) continue;
-    if (intLimDel(y, *item->getTop(), deltaBorder)) return item->getTop();
-    if (intLimDel(y, *item->getBottom(), deltaBorder)) return item->getBottom();
+    if (x < *item->getLeft()+item->getBDist() || x > *item->getRight()+item->getBDist()) continue;
+    if (intLimDel(y, *item->getTop(), item->getBDist())) return item->getTop();
+    if (intLimDel(y, *item->getBottom(), item->getBDist())) return item->getBottom();
   }
   return nullptr; 
+}
+
+void App::setActive(SDL_Event e) {
+  int x = e.button.x;
+  int y = properties.height-(int)e.button.y;
+  for (WindowItem *item : items) {
+    if (*item->getLeft() < x && *item->getRight() > x &&
+        *item->getTop() > y && *item->getBottom() < y) {
+      active = item;
+      return;
+    }
+  }
 }
 
 void App::resizeWindow(SDL_Event e) {

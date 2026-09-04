@@ -45,6 +45,11 @@ class WindowItem {
     */
     int leftoverHeight() {return height - minHeight;};
 
+    void handleClickDown(SDL_Event event);
+    void handleClickUp(SDL_Event event);
+    void handleMouseMove(SDL_Event event);
+    void handleInput(SDL_Event event);
+
     /*
       Getters for edge pointers
     */
@@ -53,6 +58,11 @@ class WindowItem {
     int* getLeft(){return left;};
     int* getTop(){return top;};
     int* getBottom(){return bottom;};
+
+    /*
+      Getter for distance to border to resize item
+    */
+    int getBDist(){return borderDist;};
 
     /*
       Setters for edge pointers 
@@ -87,7 +97,7 @@ class WindowItem {
       width = *right - *left;
       height = *top - *bottom;
     } 
-    
+
     /*
       User defined update and render functions 
       Users have to implement these for their derived classes
@@ -95,6 +105,7 @@ class WindowItem {
     virtual void update() = 0, render() = 0;
 
   protected:
+    int borderDist = 3;
     int *left, *top, *right, *bottom;
     int width = 0, height = 0;
     int minHeight = 100;
@@ -115,6 +126,11 @@ class WindowItem {
       Setter for minimum window item size
     */
     void setMinSize(int nwMW, int nwMH) {minWidth = nwMW; minHeight = nwMH;};
+
+    /*
+      Setter for distance from edge to resize the item size
+    */
+    void setBorderDist(int nwDist) {borderDist = nwDist;};
 
     /*
       Default destructor
